@@ -6,56 +6,61 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @EnvironmentObject var appState: AppState // Access the shared state
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        VStack {
+            // Mode Picker
+            Picker("Mode", selection: $appState.currentMode) {
+                ForEach(AppMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            .disabled(appState.isMonitoring) // Disable mode change while monitoring
+
+            Text("Status: \(appState.postureStatus.rawValue)")
+                .padding()
+
+            // Conditional view for camera/pocket display
+            if appState.currentMode == .camera {
+                // Placeholder for Camera Preview View
+                if appState.currentMode == .camera, let manager = appState.cameraManager {
+                     CameraPreviewView(cameraManager: manager)
+                         .frame(height: 300) // Or adjust size as needed
+                         // Add overlay here later if drawing points
+                } // Replace later
+            } else {
+                // Placeholder for Pocket Mode instructions/display
+               // PocketPlaceholderView() // Replace later
+            }
+
+            HStack {
+                Button(appState.isMonitoring ? "Stop" : "Start") {
+                    if appState.isMonitoring {
+                        appState.stopMonitoring()
+                    } else {
+                        appState.startMonitoring()
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                .padding()
+                .disabled(appState.postureStatus == .calibrating || appState.postureStatus == .initializing) // Disable if calibrating etc.
+
+
+                Button("Calibrate") {
+                    appState.requestCalibration()
                 }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
+                .padding()
+                .disabled(appState.isMonitoring) // Disable while monitoring
             }
-        } detail: {
-            Text("Select an item")
+            // Add NavigationLink to SettingsView later
+        }
+        .onAppear {
+            // Initialize managers when view appears
+            // Check for calibration status on appear
         }
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
-    }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
